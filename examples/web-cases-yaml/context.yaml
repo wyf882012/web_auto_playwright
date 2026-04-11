@@ -1,0 +1,215 @@
+session_reuse: True
+_浏览器:
+#  grid_url: "http://192.168.1.102:4444/wd/hub"
+#  driver_path: C:\Users\86150\AppData\Local\Programs\Python\Python39\chromedriver.exe
+#  driver_path: C:\Python\Python39\chromedriver.exe
+  capability:
+    browserName: chrome
+  options:
+    args:
+       - "headless"
+
+_数据库:
+  dushuwu_mysql_1:
+    host: 192.168.1.111
+    port: 3306
+    user: root
+    password: root
+    db: novel_plus
+  mysql001:
+    host: shop-xo.hctestedu.com
+    port: 3306
+    username: api_test
+    password: Aa9999!
+    database: novel-plus
+username: '15096268001'
+password: '123456'
+feedbackData: 柚一的反馈内容
+
+_WEB页面元素:
+  手机号_输入框:
+    定位方式: id
+    目标对象: txtUName
+  密码_输入框:
+    定位方式: id
+    目标对象: txtPassword
+  登陆_按钮:
+    定位方式: id
+    目标对象: btnLogin
+  点击我的书架:
+    定位方式: xpath
+    目标对象: //*[text()='我的书架']
+
+  点击我的反馈:
+    定位方式: xpath
+    目标对象: //a[text()='我的反馈']
+
+  点击反馈_按钮:
+    定位方式: xpath
+    目标对象: //a[text()='写反馈']
+  输入反馈内容:
+    定位方式: id
+    目标对象: txtDescription
+  点击反馈提交按钮:
+    定位方式: id
+    目标对象: btnSave
+  检查是否反馈成功:
+    定位方式: xpath
+    目标对象: //*[@id="feedbackList"]/div/ul/li[2]
+
+
+  后台用户名:
+    定位方式: name
+    目标对象: username
+  后台密码:
+    定位方式: name
+    目标对象: password
+  后台登陆按钮:
+    定位方式: id
+    目标对象: login
+
+  后台验证码:
+    定位方式: id
+    目标对象: imgVerify
+
+  输入验证码:
+    定位方式: id
+    目标对象: verify
+
+  作家管理:
+    定位方式: xpath
+    目标对象: //*[text()='作家管理']
+
+  邀请码管理:
+    定位方式: xpath
+    目标对象: //*[text()='邀请码管理']
+
+  iframe_邀请码1:
+    定位方式: xpath
+    目标对象: //iframe[@data-id="novel/authorCode"]
+
+  添加按钮:
+    定位方式: "css selector"
+    目标对象: .btn-primary
+
+  iframe_邀请码2:
+    定位方式: xpath
+    目标对象: //*[@src="/novel/authorCode/add"]
+  邀请码ID:
+    定位方式: id
+    目标对象: inviteCode
+  邀请码到期日期:
+    定位方式: id
+    目标对象: validityTime
+  邀请日期-最后一个数据:
+    定位方式: xpath
+    目标对象: //*[@id="laydate_table"]/tbody/tr[6]/td[7]
+  邀请码-确定按钮:
+    定位方式: xpath
+    目标对象: //*[@id="signupForm"]/div[3]/div/button
+  搜索框:
+    定位方式: id
+    目标对象: inviteCode
+  搜索按钮:
+    定位方式: xpath
+    目标对象: /html/body/div[1]/div/div/div/div[1]/div[2]/button
+  搜索结果的第一个邀请码:
+    定位方式: xpath
+    目标对象: //*[@id="exampleTable"]/tbody/tr/td[3]
+
+
+  我的书架:
+    定位方式: xpath
+    目标对象: //*[@id="headerUserInfo"]/a
+
+  我的书架最新-继续阅读:
+    定位方式: xpath
+    目标对象: //*[@id="bookShelfList"]/tr[1]/td[5]/a
+  评价按钮:
+    定位方式: xpath
+    目标对象: //*[@id="showDetail"]/div[1]/div/div[1]/div[1]/ul/li[5]/a/b
+  发布评价:
+    定位方式: xpath
+    目标对象: /html/body/div[2]/div/div[1]/div/div/div/div[1]/a
+  评价文本框:
+    定位方式: id
+    目标对象: txtComment
+  发表按钮:
+    定位方式: xpath
+    目标对象: //*[@id="reply_bar"]/div[2]/span[2]/a
+  评价成功弹窗信息:
+    定位方式: xpath
+    目标对象: //*[@id="layui-layer1"]/div[2]
+
+  作家专区-入口:
+    定位方式: xpath
+    目标对象: //*[text()='作家专区']
+  邀请码-文本框:
+    定位方式: id
+    目标对象: TxtGetCode
+  作者笔名-文本框:
+    定位方式: id
+    目标对象: TxtNiceName
+  手机号码-文本框:
+    定位方式: id
+    目标对象: TxtMobile
+  QQ或微信-文本框:
+    定位方式: id
+    目标对象: TxtQQ
+  电子邮箱-文本框:
+    定位方式: id
+    目标对象: TxtEmail
+
+  男女主角-按钮:
+    定位方式: xpath
+    目标对象: //*[text()='男性主角选男频']
+  作家信息提交按钮:
+    定位方式: id
+    目标对象: btnSubmit
+
+  注册手机号_输入框:
+    定位方式: id
+    目标对象: txtUName
+
+  注册密码_输入框:
+    定位方式: id
+    目标对象: txtPassword
+
+  注册登陆_按钮:
+    定位方式: id
+    目标对象: btnRegister
+
+  用户验证码:
+    定位方式: id
+    目标对象: chkd
+
+  用户输入验证码:
+    定位方式: id
+    目标对象: TxtChkCode
+
+  登录按钮:
+    定位方式: xpath
+    目标对象: //*[@id="headerUserInfo"]/span/a[1]
+  退出按钮:
+    定位方式: xpath
+    目标对象: //*[@id="headerUserInfo"]/span/a[2]
+
+  书籍搜索框:
+    定位方式: id
+    目标对象: searchKey
+  书籍搜索按钮:
+    定位方式: xpath
+    目标对象: //*[@id="btnSearch"]/i
+  搜索列表书籍-第一本书:
+    定位方式: xpath
+    目标对象: //*[@id="bookList"]/tr[1]/td[3]
+  加入书架按钮:
+    定位方式: xpath
+    目标对象: //*[@id="headerUserInfo"]/a
+  我的书架最新书名:
+    定位方式: xpath
+    目标对象: //*[@id="bookShelfList"]/tr[1]/td[2]/a
+
+#  确定弹窗:
+#    定位方式: 'link text'
+#    目标对象: 确定
