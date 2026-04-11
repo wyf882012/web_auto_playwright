@@ -51,7 +51,3 @@ Thumbs.db
 *.tmp
 *.bak
 *.cache
-
-# Project specific
-img.png
-check_project.py
