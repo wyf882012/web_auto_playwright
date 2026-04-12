@@ -1,6 +1,8 @@
 import setuptools
 """
-打包成一个 可执行模块
+打包成一个 可执行模块。
+
+该配置文件用于将 HAT 框架打包成 Python 库或可执行命令行工具。
 """
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()

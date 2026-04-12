@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-# @Author  : 柚一
+# @Author  : wyf
 # @File    : WebCaseContext.py
-# https://pypi.tuna.tsinghua.edu.cn/simple/
-# 项目地址可能发生变化，测试数据如果太多可能随时还原。 碰到地址打不开，报错等等情况，联系班主任老师及时反馈
+
 import atexit
 
 import allure
@@ -20,10 +19,15 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions, Option
 from selenium.webdriver.ie.service import Service as Ie_Service
 from selenium.webdriver.ie.options import Options as IeOptions
 
-_global_driver_obj=None
-#复用浏览器也没有关闭
+_global_driver_obj = None
+
+# 复用浏览器也没有关闭
 def cleanup_shared_driver():
-    "安全的清理函数"
+    """
+    安全的清理函数。
+    
+    在程序退出时自动调用，确保共享的浏览器驱动被正确关闭，防止残留进程。
+    """
     global _global_driver_obj
     if _global_driver_obj is not None:
         try:
@@ -50,12 +54,25 @@ def cleanup_shared_driver():
 atexit.register(cleanup_shared_driver)
 
 class WebCaseContext:
+    """
+    Web 用例上下文管理类。
+    
+    负责浏览器的初始化、关键字对象的创建以及资源的释放。
+    它充当了“舞台监督”的角色，管理着测试环境的生命周期。
+    """
     def __init__(self):
-        self.driver=None
-        self.keywords=None
+        self.driver = None
+        self.keywords = None
 
-    #优化浏览器 让框架支持不同的浏览器运行
+    # 优化浏览器 让框架支持不同的浏览器运行
     def init_driver(self):
+        """
+        根据全局配置初始化 Selenium WebDriver。
+        
+        支持 Chrome, Firefox, IE 以及远程 Grid 模式。
+        
+        :return: 配置好的 WebDriver 实例
+        """
         #映射表
         driver_class={
             "remote": {"driver": webdriver.Remote},#支持远程连接
@@ -117,8 +134,16 @@ class WebCaseContext:
 
 
 
-    #浏览器复用还是不复用
+    # 浏览器复用还是不复用
     def init_keywords(self):
+        """
+        初始化关键字对象。
+        
+        根据配置决定是否复用浏览器会话。如果复用，则使用全局唯一的驱动对象；
+        否则每次都会创建一个新的浏览器实例。
+        
+        :return: Keywords 实例
+        """
         session_reuse=g_context().get_dict("session_reuse")
         if session_reuse is not None and session_reuse==True:#浏览器复用 保持在一个浏览器中只能实例一次浏览器
             global _global_driver_obj #定义一个全局变量
@@ -132,8 +157,13 @@ class WebCaseContext:
         self.keywords = Keywords(self.driver)
         return self.keywords
 
-    #有些同学的浏览器不会关闭
+    # 有些同学的浏览器不会关闭
     def release(self):
+        """
+        释放资源。
+        
+        包括生成 Allure 报告中的视频回放效果，以及在不复用模式下关闭浏览器。
+        """
         try:
             self.add_video_like_slideshow(self.keywords.screen_shots)
             #不复用  浏览器没有自动关闭 就调这个方法

@@ -1,13 +1,6 @@
 # -*- coding: utf-8 -*-
 import os, shutil, sys, time
 import subprocess
-
-# 修复 Windows 控制台中文乱码问题
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-
 import pytest
 import argparse
 from _pytest.config import ExitCode
@@ -17,6 +10,12 @@ from HAT.core.CasesPlugin import CasesPlugin
 from loguru import logger
 
 from HAT.extend.allure_combine.combine import combine_allure
+
+# 修复 Windows 控制台中文乱码问题
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # 创建 logs 文件夹
 if not os.path.exists("logs"):
@@ -33,35 +32,40 @@ logger.configure(
 #### 日志配置end
 def parse_args():
     """
-    :return:进行参数的解析
+    解析命令行参数。
+    
+    :return: 包含测试类型、用例路径等配置的命名空间对象
     """
-    parser = argparse.ArgumentParser(description="华测教育(vip.hctestedu.com) 多端融合自动化测试工具。\n【从0教你如何开发及拓展，快速提升实力！】")
+    parser = argparse.ArgumentParser(description="自动化测试工具。")
     parser.add_argument('--version', action="version", version="v202507.1")
     parser.add_argument('--type', type=str, default='yaml', help='测试用例类型: yaml | excel', required=False)
-    parser.add_argument('--cases', type=str, help='指定测试用例的文件夹路径.', required=True)
+    parser.add_argument('--cases', type=str, default='examples/web-cases-yaml',help='指定测试用例的文件夹路径.', required=False)
     parser.add_argument('--keyDir', type=str, help='拓展关键字代码文件夹路径.', required=False)
     parser.add_argument('--alluredir', type=str,default=os.path.join(os.getcwd(),"test-results"), help='文件夹路径，用于保存测试执行后的结果数据.', required=False)
     parser.add_argument('--report_html_path', type=str,default=os.path.join(os.getcwd(),"HTML测试报告"), help='HTML测试报告的保存位置.', required=False)
     args_result = parser.parse_args() # 解析参数
     return args_result
+    print(args_result)
 cmd_args = parse_args()
 
 def run():
+    """
+    自动化测试主运行函数。
+    
+    负责环境检查、调用 pytest 执行测试以及生成 Allure 可视化报告。
+    """
     print(f"###############################################")
-    print(f"######## 华测教育科技（http://vip.hctestedu.com）   ")
-    print(f"######## 自研多端融合自动化测试工具(版本v202507.1)      ")
-    print(f"######## 四合一：WEB/接口/APP/AI自动化      ")
-    print(f"######## 提升软件测试能力！认准(华测)全栈测试专家  ")
+    print(f"######## 自动化测试工具(版本v2026.4) ########")
     print(f"################################################")
     # 1. 读取命令行传入的参数，转换为 pytest 兼容的写法
-    # pytest_args = ["-s", "-v", "--capture=tee-sys","--clean-alluredir"]
     pytest_args = ["-v","--no-header","-s","--clean-alluredir", "-W", "ignore"]
     if cmd_args.type: pytest_args.append(f"--type={cmd_args.type}")
     if cmd_args.cases: pytest_args.append(f"--cases={cmd_args.cases}")
     if cmd_args.keyDir: pytest_args.append(f"--keyDir={cmd_args.keyDir}")
     if cmd_args.alluredir: pytest_args.append(f"--alluredir={cmd_args.alluredir}")
     import HAT.core.TestRunner as TestRunner
-    pytest_args.append(TestRunner.__file__)
+    if TestRunner.__file__:
+        pytest_args.append(TestRunner.__file__)
 
     # 2. 检查必备依赖
     logger.info(f"########开始环境检查#######")

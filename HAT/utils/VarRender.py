@@ -6,18 +6,22 @@
 from jinja2 import Template
 
 
-#安装pip install jinja2 -i https://pypi.tuna.tsinghua.edu.cn/simple/
+# 安装pip install jinja2 -i https://pypi.tuna.tsinghua.edu.cn/simple/
 
-#封装的方法：字符串模板和字典进行字符串的替换操作
-def refresh(target,context):
+# 封装的方法：字符串模板和字典进行字符串的替换操作
+def refresh(target, context):
     """
-    原理：字符串模板和字典进行字符串的替换操作
-    :param target: 目标值需要个字符串模板  '{{变量名}}'
-    :param context: 源字典  字典 {键:值}
-    :return:
+    原理：字符串模板和字典进行字符串的替换操作。
+    
+    使用 Jinja2 模板引擎将用例中的占位符（如 {{username}}）替换为全局上下文中的真实值。
+    
+    :param target: 目标值，需要是一个字符串模板，例如 '{{变量名}}'
+    :param context: 源字典，包含键值对 {键:值}
+    :return: 替换后的字符串
     """
-    if target is None:return  None
-    return Template(str(target)).render(context)#实现替换操作
+    if target is None:
+        return None
+    return Template(str(target)).render(context)  # 实现替换操作
 
 if __name__ == '__main__':
     a="我的姓名是,{{aname}}"
