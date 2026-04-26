@@ -1,0 +1,53 @@
+# ============================================================
+# reelmate.cn (万兴剧厂) 登录模块测试 - 上下文配置
+# 使用 Playwright 原生选择器，优先: text > placeholder > role > css > xpath
+# ============================================================
+
+session_reuse: False
+
+_浏览器:
+  capability:
+    browserName: chromium
+  options:
+    args:
+      - "--disable-blink-features=AutomationControlled"
+
+# ---- 测试账号 ----
+username: "18318053665"
+password: "qq111111"
+base_url: "https://www.reelmate.cn"
+login_url: "https://accounts.wondershare.cn/login"
+
+# ---- 页面元素定位 ----
+# 定位方式说明: text(文本匹配) > placeholder(占位符) > role(语义角色) > css > xpath
+_WEB页面元素:
+  # ===== 首页登录入口（使用 text 选择器，最简洁且稳定）=====
+  登录入口按钮:
+    定位方式: text
+    目标对象: 登录
+
+  # ===== 登录页表单 =====
+  # 用户名输入框 —— Playwright 支持多选择器用逗号分隔，按顺序匹配
+  用户名输入框:
+    定位方式: css
+    目标对象: input[type="email"], input[type="text"], input[name="email"], input[name="username"]
+
+  # 密码输入框
+  密码输入框:
+    定位方式: css
+    目标对象: input[type="password"]
+
+  # 登录提交按钮
+  登录提交按钮:
+    定位方式: css
+    目标对象: button[type="submit"], input[type="submit"], button:has-text("登录"), button:has-text("登錄")
+
+  # 登录错误提示（可能出现的错误信息弹窗）
+  登录错误提示:
+    定位方式: css
+    目标对象: [class*="error"], [class*="alert"], [class*="msg"]
+
+  # 用户头像或昵称（登录成功后出现）
+  用户头像或昵称:
+    定位方式: css
+    目标对象: [class*="avatar"], [class*="user"], [class*="nickname"]

@@ -1,6 +1,33 @@
 # -*- coding: utf-8 -*-
-# @Author  : wyf
-# @File    : YamlCaseParser.py
+"""
+YamlCaseParser —— YAML 用例解析器
+====================================
+
+负责从指定目录中读取 YAML 格式的测试用例文件，解析为框架统一的用例数据结构。
+
+解析流程:
+  1. load_context_from_yaml() — 加载 context.yaml 全局配置到 g_context
+  2. load_yaml_files() — 扫描目录，按文件名数字前缀排序加载 YAML 用例
+  3. yaml_case_parser() — 处理数据驱动（DDT），生成最终测试用例列表
+
+文件命名规则:
+  - context.yaml: 全局配置文件（浏览器配置、页面元素、账号密码等）
+  - N_*.yaml (N 为数字): 测试用例文件，按数字前缀排序（如 0_登录页面验证.yaml）
+
+输出数据结构（与 Excel 解析器完全一致）:
+  {
+    "case_infos": [
+      {
+        "基础配置": {"用例类型": "WebCase", "一级模块": "登录", ...},
+        "用例步骤": [{"步骤名": {"操作类型": "xxx", ...}}, ...],
+        "数据驱动": [...],  # 可选
+        "local_context": {...},  # DDT 注入
+      },
+      ...
+    ],
+    "case_names": ["测试标题1", "测试标题2", ...]
+  }
+"""
 
 import copy
 import os.path

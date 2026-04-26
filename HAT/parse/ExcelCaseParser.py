@@ -1,8 +1,32 @@
 # -*- coding: utf-8 -*-
-# @Author  : 柚一
-# @File    : ExcelCaseParser.py
-# https://pypi.tuna.tsinghua.edu.cn/simple/
-# 项目地址可能发生变化，测试数据如果太多可能随时还原。 碰到地址打不开，报错等等情况，联系班主任老师及时反馈
+"""
+ExcelCaseParser —— Excel 用例解析器
+======================================
+
+负责从指定目录中读取 Excel (.xlsx) 格式的测试用例文件，解析为框架统一的用例数据结构。
+
+解析流程:
+  1. load_context_from_excel() — 加载 context.xlsx 的 4 个页签:
+     - "数据库配置" → _数据库
+     - "浏览器配置" → _浏览器
+     - "WEB页面元素" → _WEB页面元素
+     - "通用配置" → 直接注入 g_context（username, password, base_url 等）
+  2. load_excel_files() — 扫描目录，按文件名数字前缀排序加载用例文件
+  3. group_cases_by_title() — 将扁平的行数据按"用例标题"聚合成用例结构
+  4. excel_case_parser() — 输出最终的 case_infos/case_names
+
+文件命名规则:
+  - context.xlsx: 全局配置文件（多页签）
+  - N_*.xlsx (N 为数字): 测试用例文件，按数字前缀排序（如 1_登录模块测试.xlsx）
+
+Excel 用例格式:
+  列: 模块 | 功能 | 用例标题 | 用例类型 | 测试步骤 | 操作类型 | 数据内容
+  数据内容列使用 key="value" 格式（如 username="18318053665" password="qq111111"）
+
+POM 支持:
+  操作类型列支持 POM 点分表示法（如 LoginPage.login），
+  解析器对操作类型值不做特殊处理，TestRunner 在运行时根据 "." 判断是否走 POM 路径。
+"""
 import ast
 import json
 import os.path
@@ -120,28 +144,37 @@ def to_dict(value):
 def load_context_from_excel(folder_path):
     """
     从指定文件夹加载 context.xlsx 配置文件，并将其内容存入全局上下文。
-    
+
+    依次读取各个页签，缺失的页签会被跳过（不会导致错误）。
+
     :param folder_path: 包含 context.xlsx 的文件夹路径
     """
     excel_file_path = os.path.join(folder_path, 'context.xlsx')
+    if not os.path.exists(excel_file_path):
+        return
+
     context_data = {}
+    xl = pd.ExcelFile(excel_file_path)
 
-    # 依次读取各个页签并转换格式
-    all_sheets = pd.read_excel(excel_file_path, sheet_name="数据库配置")
-    config_dict = load_dbinfo("数据库配置", all_sheets)
-    context_data.update({"_数据库": config_dict})
+    # 数据库配置（可选页签）
+    if "数据库配置" in xl.sheet_names:
+        all_sheets = pd.read_excel(excel_file_path, sheet_name="数据库配置")
+        context_data.update({"_数据库": load_dbinfo("数据库配置", all_sheets)})
 
-    all_sheets = pd.read_excel(excel_file_path, sheet_name="浏览器配置")
-    config_dict = load_browserInfo("浏览器配置", all_sheets)
-    context_data.update({"_浏览器": config_dict})
+    # 浏览器配置
+    if "浏览器配置" in xl.sheet_names:
+        all_sheets = pd.read_excel(excel_file_path, sheet_name="浏览器配置")
+        context_data.update({"_浏览器": load_browserInfo("浏览器配置", all_sheets)})
 
-    all_sheets = pd.read_excel(excel_file_path, sheet_name="WEB页面元素")
-    config_dict = load_web_ele("WEB页面元素", all_sheets)
-    context_data.update({"_WEB页面元素": config_dict})
+    # WEB页面元素（可选页签，POM 模式下不需要）
+    if "WEB页面元素" in xl.sheet_names:
+        all_sheets = pd.read_excel(excel_file_path, sheet_name="WEB页面元素")
+        context_data.update({"_WEB页面元素": load_web_ele("WEB页面元素", all_sheets)})
 
-    all_sheets = pd.read_excel(excel_file_path, sheet_name="通用配置")
-    config_dict = load_configuration("通用配置", all_sheets)
-    context_data.update(config_dict)
+    # 通用配置
+    if "通用配置" in xl.sheet_names:
+        all_sheets = pd.read_excel(excel_file_path, sheet_name="通用配置")
+        context_data.update(load_configuration("通用配置", all_sheets))
 
     if context_data:
         g_context().set_by_dict(context_data)
@@ -168,7 +201,7 @@ def group_cases_by_title(data):
 
         # 处理数据内容字符串，将其转换为字典
         data_content_dict = {}
-        if data_content is not None and data_content != "":
+        if isinstance(data_content, str) and data_content.strip():
             pattern = r'(\w+)=(?:"([^"]*)"|(\S+))'
             matches = re.findall(pattern, data_content)
             for key, quoted_value, unquoted_value in matches:
@@ -199,7 +232,6 @@ def group_cases_by_title(data):
 
     if current_case is not None:
         result.append(current_case)
-    print("结果", result)
     return result
 
 def safe_convert_value(value_str):

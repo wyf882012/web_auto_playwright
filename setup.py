@@ -11,9 +11,8 @@ setuptools.setup(
     # 关于项目的介绍 - 随便写都可以
     name="HuaceAutoTest",
     version="1.0.0",
-    author="hctestedu.com",
-    author_email="zhangfeng0103@live.com",
-    description="华测教育-多端融合自动化测试工具",
+    author="wyf",
+    description="UI自动化测试工具",
     license="GPLv3",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -35,7 +34,7 @@ setuptools.setup(
         "pandas==1.5.3",
         "PyMySQL==1.1.2",  # 改为 1.1.2
         "allure-pytest==2.13.5",
-        "selenium==4.2.0",  # 改为 4.2.0
+        "playwright>=1.45.0",  # Playwright 替代 Selenium
         "urllib3==1.26.20",  # 改为 1.26.20
         "PyYAML==6.0.3",  # 改为 6.0.3
         "pyyaml-include==1.3.1",
