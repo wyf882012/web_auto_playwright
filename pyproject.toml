@@ -1,0 +1,36 @@
+[project]
+name = "hat-automation"
+version = "2026.5.0"
+description = "HAT — Playwright + pytest + POM + DDT + Allure automation framework"
+requires-python = ">=3.8"
+readme = "README.md"
+license = {text = "GPL-3.0"}
+authors = [{name = "HAT Team"}]
+keywords = ["automation", "testing", "playwright", "pytest", "allure", "ddt"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License (GPL)",
+    "Operating System :: OS Independent",
+    "Framework :: Pytest",
+    "Topic :: Software Development :: Testing",
+]
+
+[project.scripts]
+hat-test = "main:run"
+
+[tool.pytest.ini_options]
+addopts = "-v --no-header -s -W ignore --type=excel"
+testpaths = ["HAT"]
+python_files = ["runner.py"]
+markers = [
+    "smoke: Smoke tests",
+    "regression: Regression tests",
+    "login: Login module tests",
+    "slow: Slow tests",
+    "pom: POM page-object tests",
+    "ddt: Data-driven tests",
+]
+log_cli = false
+log_cli_level = "WARNING"
+log_file = "logs/pytest.log"
+log_file_level = "DEBUG"

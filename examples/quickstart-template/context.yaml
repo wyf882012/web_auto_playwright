@@ -1,0 +1,42 @@
+# ============================================================
+# HAT 快速入门模板 — 百度搜索测试上下文配置
+# ============================================================
+# 这是最简单的配置示例，只需修改以下内容即可适配你的项目:
+#   1. 修改 base_url 为你的测试网站地址
+#   2. 在 _WEB页面元素 中添加你需要操作的元素定义
+#   3. 如需复用浏览器会话，将 session_reuse 改为 True
+# ============================================================
+
+# 浏览器会话复用: False=每个用例独立浏览器, True=多个用例共用一个浏览器
+session_reuse: False
+
+# 浏览器配置
+_浏览器:
+  capability:
+    browserName: chromium          # 浏览器: chromium / firefox / webkit
+  options:
+    args:
+      - "--disable-blink-features=AutomationControlled"
+
+# ---- 测试变量 ----
+# 在这里定义你的测试账号、URL 等变量
+base_url: "https://www.baidu.com"
+
+# ---- 页面元素定位 ----
+# 定位方式支持: text(文本匹配), placeholder(占位符), role(语义角色), css(CSS选择器), xpath
+# 推荐优先级: role > placeholder > text > css > xpath
+_WEB页面元素:
+  # 百度搜索框（使用 id 定位，最简洁）
+  搜索框:
+    定位方式: css
+    目标对象: "#kw"
+
+  # 百度一下 按钮
+  搜索按钮:
+    定位方式: css
+    目标对象: "#su"
+
+  # 搜索结果容器
+  搜索结果:
+    定位方式: css
+    目标对象: "#content_left"

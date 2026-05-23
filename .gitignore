@@ -39,15 +39,28 @@ logs/
 
 # Test Results
 test-results/
+test-results-web/
 HTML测试报告/
+HTML测试报告-web/
+allure-report/
 allure-results/
 *.html
+
+# Playwright Traces
+traces/
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Temporary files
 *.tmp
 *.bak
 *.cache
+
+# Sensitive / local files
+.env
+*.secret
+credentials.*
+.claude/

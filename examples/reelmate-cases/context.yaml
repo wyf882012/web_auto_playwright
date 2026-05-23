@@ -45,9 +45,9 @@ _WEB页面元素:
   # 登录错误提示（可能出现的错误信息弹窗）
   登录错误提示:
     定位方式: css
-    目标对象: [class*="error"], [class*="alert"], [class*="msg"]
+    目标对象: '[class*="error"], [class*="alert"], [class*="msg"]'
 
   # 用户头像或昵称（登录成功后出现）
   用户头像或昵称:
     定位方式: css
-    目标对象: [class*="avatar"], [class*="user"], [class*="nickname"]
+    目标对象: '[class*="avatar"], [class*="user"], [class*="nickname"]'

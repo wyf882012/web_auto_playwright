@@ -1,148 +1,138 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-HAT 混合型企业级自动化测试框架 —— 入口文件
-==============================================
+HAT — Hybrid Automation Testing framework
+Python + Playwright + pytest + POM + DDT + Allure
 
-运行方式:
-  # Excel 用例模式
-  python main.py --type=excel --cases=./examples/reelmate-cases-excel
-
-  # YAML 用例模式
-  python main.py --type=yaml --cases=./examples/reelmate-cases
-
-  # 指定 Allure 报告输出路径
-  python main.py --type=excel --cases=./examples/reelmate-cases-excel --alluredir=./test-results --report_html_path=./HTML测试报告
-
-架构说明:
-  命令行参数 -> CasesPlugin(解析用例) -> TestRunner(执行用例) -> Keywords(操作浏览器)
-                                -> Allure 报告生成
+Usage:
+  python main.py --cases=./examples/reelmate-cases-excel
+  python main.py --cases=./examples/reelmate-cases-excel --headless
+  python main.py --cases=./examples/reelmate-cases-excel --headless --browser=firefox
+  python main.py --cases=./examples/reelmate-cases-excel --headless --workers=4
 """
+
+import argparse
 import os
 import shutil
+import subprocess
 import sys
 import time
-import subprocess
-import pytest
-import argparse
-from _pytest.config import ExitCode
 
-from HAT.core.CasesPlugin import CasesPlugin
+import pytest
+from _pytest.config import ExitCode
 from loguru import logger
+
 from HAT.extend.allure_combine.combine import combine_allure
 
-# ---- 修复 Windows 控制台中文乱码 ----
+# ── Windows console UTF-8 fix ──────────────────────────────────
 if sys.platform == "win32":
     import io
-
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
-# ---- 日志配置 ----
-if not os.path.exists("logs"):
-    os.mkdir("logs")
-log_level = os.getenv("HAT_LOG_LEVEL", "INFO").upper()
-time_str = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
-logger.configure(
-    handlers=[
-        {"sink": sys.stdout, "level": "WARNING"},  # 控制台只输出 WARNING 及以上
-        {"sink": os.path.join("./logs", f"hat_{time_str}.log"), "level": log_level},  # 文件记录完整日志
-    ]
-)
+# ── Logging ────────────────────────────────────────────────────
+os.makedirs("logs", exist_ok=True)
+logger.configure(handlers=[
+    {"sink": sys.stdout, "level": "WARNING"},
+    {"sink": os.path.join("logs", f"hat_{time.strftime('%Y%m%d_%H%M%S')}.log"),
+     "level": os.getenv("HAT_LOG_LEVEL", "INFO").upper()},
+])
 
 
 def parse_args():
-    """
-    解析命令行参数。
-
-    :return: 包含测试类型、用例路径、报告路径等配置的命名空间对象
-    """
-    parser = argparse.ArgumentParser(description="HAT 自动化测试工具 (Playwright版)")
-    parser.add_argument("--version", action="version", version="v2026.4-playwright")
-    parser.add_argument("--type", type=str, default="yaml", help="用例类型: yaml | excel", required=False)
-    parser.add_argument("--cases", type=str, default="examples/web-cases-yaml", help="测试用例文件夹路径", required=False)
-    parser.add_argument("--keyDir", type=str, help="扩展关键字代码文件夹路径", required=False)
-    parser.add_argument("--alluredir", type=str, default=os.path.join(os.getcwd(), "test-results"),
-                        help="Allure 结果数据保存路径", required=False)
-    parser.add_argument("--report_html_path", type=str, default=os.path.join(os.getcwd(), "HTML测试报告"),
-                        help="HTML 测试报告输出路径", required=False)
-    return parser.parse_args()
-
-
-cmd_args = parse_args()
+    p = argparse.ArgumentParser(description="HAT Automation Testing Tool")
+    p.add_argument("--version", action="version", version="2026.5.0")
+    p.add_argument("--type", default="excel", help="Case format: excel | yaml")
+    p.add_argument("--cases", default="examples/reelmate-cases-excel",
+                   help="Case directory path")
+    p.add_argument("--keyDir", help="Custom keyword directory")
+    p.add_argument("--headless", action="store_true",
+                   help="Headless mode (no browser UI)")
+    p.add_argument("--browser", default="chromium",
+                   choices=["chromium", "firefox", "webkit"],
+                   help="Browser type")
+    p.add_argument("--workers", type=int, default=1,
+                   help="Parallel workers (requires pytest-xdist)")
+    p.add_argument("--alluredir", default=os.path.join(os.getcwd(), "test-results"),
+                   help="Allure results directory")
+    p.add_argument("--report_html_path", default=os.path.join(os.getcwd(), "HTML测试报告"),
+                   help="HTML report output directory")
+    return p.parse_args()
 
 
 def run():
-    """
-    自动化测试主运行函数。
+    args = parse_args()
 
-    流程:
-      1. 解析命令行参数，转换为 pytest 兼容格式
-      2. 检查必备依赖（allure-pytest、allure CLI 工具）
-      3. 调用 pytest 执行测试（CasesPlugin 负责动态生成用例数据）
-      4. 生成 Allure 可视化 HTML 报告
-      5. 自动打开浏览器展示报告
-    """
-    print("###############################################")
-    print("######## HAT 自动化测试工具 (Playwright版) ########")
-    print("########     版本 v2026.4.playwright     ########")
-    print("################################################")
+    print("=" * 50)
+    print("   HAT Automation Testing Tool")
+    print("   v2026.5.0 — Playwright + pytest + POM + DDT")
+    print("=" * 50)
 
-    # 1. 构建 pytest 命令行参数
+    # Inject CLI config as env vars (highest priority)
+    if args.headless:
+        os.environ["HAT_HEADLESS"] = "true"
+        logger.info("Headless mode enabled")
+    os.environ["HAT_BROWSER"] = args.browser
+
+    # Build pytest args
     pytest_args = ["-v", "--no-header", "-s", "--clean-alluredir", "-W", "ignore"]
-    if cmd_args.type:
-        pytest_args.append(f"--type={cmd_args.type}")
-    if cmd_args.cases:
-        pytest_args.append(f"--cases={cmd_args.cases}")
-    if cmd_args.keyDir:
-        pytest_args.append(f"--keyDir={cmd_args.keyDir}")
-    if cmd_args.alluredir:
-        pytest_args.append(f"--alluredir={cmd_args.alluredir}")
+    pytest_args.append(f"--type={args.type}")
+    pytest_args.append(f"--cases={args.cases}")
+    if args.keyDir:
+        pytest_args.append(f"--keyDir={args.keyDir}")
+    pytest_args.append(f"--alluredir={args.alluredir}")
 
-    # 指定 TestRunner 作为 pytest 测试目标
-    import HAT.core.TestRunner as TestRunner
-    if TestRunner.__file__:
-        pytest_args.append(TestRunner.__file__)
+    if args.workers > 1:
+        pytest_args.extend(["-n", str(args.workers)])
+        logger.info(f"Parallel workers: {args.workers}")
 
-    # 2. 环境检查
-    logger.info("######## 开始环境检查 ########")
-    logger.info("1. 检查 allure-pytest 是否存在")
-    from allure_pytest import plugin as allure_plugin
-    logger.info(f"   allure-pytest 加载成功: {allure_plugin}")
+    # Target: TestRunner.test_case in runner.py
+    import HAT.runner
+    pytest_args.append(HAT.runner.__file__)
 
-    logger.info("2. 检查 allure CLI 工具")
-    if shutil.which("allure") is not None:
-        logger.info("   allure CLI 检查通过")
-    else:
-        logger.error("请确保已安装 allure 命令行工具并配置到环境变量 PATH 中")
-        logger.error("下载地址: https://github.com/allure-framework/allure2/releases")
+    # Environment checks
+    logger.info("── Environment checks ──")
+    try:
+        import allure_pytest
+        logger.info(f"  allure-pytest: OK")
+    except ImportError:
+        logger.error("  allure-pytest not installed!  pip install allure-pytest")
         sys.exit(1)
 
-    # 3. 执行测试
-    exit_code = pytest.main(pytest_args, plugins=[CasesPlugin()])
-    print("测试执行完毕，开始生成测试报告...")
+    if shutil.which("allure"):
+        logger.info("  allure CLI: OK")
+    else:
+        logger.error("  allure CLI not found!  Install from: "
+                     "https://github.com/allure-framework/allure2/releases")
+        sys.exit(1)
 
-    # 4. 生成 Allure 报告
-    if ExitCode.OK == exit_code or ExitCode.TESTS_FAILED == exit_code:
+    # Run tests
+    exit_code = pytest.main(pytest_args)
+    print("\nTests complete. Generating report...")
+
+    # Generate Allure report
+    if exit_code in (ExitCode.OK, ExitCode.TESTS_FAILED):
         try:
-            # 调用 allure CLI 生成报告
             subprocess.check_output(
-                f"allure generate --lang zh {cmd_args.alluredir} -c -o {cmd_args.report_html_path}",
-                shell=True, universal_newlines=True,
+                ["allure", "generate", "--lang", "zh", args.alluredir,
+                 "-c", "-o", args.report_html_path],
+                universal_newlines=True,
             )
-            # 合并并美化报告（单文件 HTML）
-            combine_allure(cmd_args.report_html_path)
-            # 自动打开浏览器查看报告
-            import webbrowser
-            webbrowser.open(os.path.join(cmd_args.report_html_path, "report.html"))
+            combine_allure(args.report_html_path)
+            if not args.headless:
+                import webbrowser
+                webbrowser.open(os.path.join(args.report_html_path, "report.html"))
         except subprocess.CalledProcessError as e:
             logger.exception(e)
-            logger.error(f"生成测试报告失败！{e}")
+            logger.error(f"Report generation failed: {e}")
+    elif exit_code == ExitCode.NO_TESTS_COLLECTED:
+        logger.error("No test cases collected — check --cases path")
     else:
-        if ExitCode.NO_TESTS_COLLECTED == exit_code:
-            logger.error("没有发现任何测试用例，请检查 --cases 路径是否正确")
-        else:
-            logger.error("测试用例执行失败！")
-    print("##################### 执行结束 ##########################")
+        logger.error("Test execution failed!")
+
+    print("=" * 50)
+    print("   Execution finished")
+    print("=" * 50)
 
 
 if __name__ == "__main__":
