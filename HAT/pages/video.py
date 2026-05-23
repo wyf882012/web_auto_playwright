@@ -6,7 +6,6 @@ Handles the "参考生视频" workflow: mode selection → TGI selection → mod
 
 import os
 from types import SimpleNamespace
-from typing import Optional
 
 import allure
 from playwright.sync_api import expect

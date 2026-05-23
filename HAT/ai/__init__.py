@@ -29,6 +29,7 @@ class AIMixin:
 
     def _ai_call(self, prompt: str):
         """Screenshot + prompt → vision model → parsed JSON + image dimensions."""
+        # ── Config check: fail early with clear message ──
         if not cfg.get("HAT_LLM_API_KEY"):
             raise RuntimeError(
                 "HAT_LLM_API_KEY not configured. "
@@ -48,9 +49,11 @@ class AIMixin:
             timeout=float(cfg.get("HAT_LLM_TIMEOUT", 60)),
             max_retries=int(cfg.get("HAT_LLM_MAX_RETRIES", 2)),
         )
+        # ── Screenshot → base64 ──
         img_bytes = self.page.screenshot(full_page=False)
         b64 = base64.b64encode(img_bytes).decode("ascii")
 
+        # ── Save temp file → PIL dimensions → cleanup ──
         tmp = os.path.join(os.path.dirname(__file__), f"{uuid.uuid4().hex}.png")
         try:
             with open(tmp, "wb") as f:
@@ -61,12 +64,14 @@ class AIMixin:
             if os.path.exists(tmp):
                 os.remove(tmp)
 
+        # ── Provider resize: adapt image to model's preferred input size ──
         provider = cfg.get("_ai_provider")
         if not callable(getattr(provider, "resize", None)):
             provider = QwenVLProvider()
         iw, ih = provider.resize(width, height)
         min_px, max_px = provider.get_min_max_pixels()
 
+        # ── Vision API call ──
         t_start = time.time()
         completion = client.chat.completions.create(
             model=cfg.get("HAT_LLM_MODEL_NAME"),
@@ -81,10 +86,12 @@ class AIMixin:
         resp = json.loads(completion.model_dump_json())
         content = resp["choices"][0]["message"]["content"] or ""
 
+        # ── Allure attachments for debugging ──
         allure.attach(prompt[:2000], "AI Prompt", allure.attachment_type.TEXT)
         allure.attach(content[:2000], "AI Response", allure.attachment_type.TEXT)
         allure.attach(f"{elapsed:.2f}s", "AI Latency", allure.attachment_type.TEXT)
 
+        # ── Extract JSON from markdown code block ──
         m = re.search(r"```json\n(.*?)```", content, re.DOTALL)
         if m is None:
             logger.warning(f"No JSON block in AI response: {content[:200]}")
@@ -104,6 +111,12 @@ class AIMixin:
     @allure.step("AI Click/Input/Extract")
     def AI操作(self, **kwargs):
         """Single-step AI action: vision locates element → click/input/extract."""
+        # Hard-fail on config errors (missing API key / model name)
+        if not cfg.get("HAT_LLM_API_KEY"):
+            raise RuntimeError("HAT_LLM_API_KEY not configured")
+        if not cfg.get("HAT_LLM_MODEL_NAME"):
+            raise RuntimeError("HAT_LLM_MODEL_NAME not configured")
+
         actions = ["点击", "输入", "文本提取"]
         prompt = (
             "## Goal\n- Identify the element in the screenshot matching the user's description.\n"
@@ -121,6 +134,12 @@ class AIMixin:
                 extra_vars={"actions": ", ".join(actions)},
             )
             bbox = result.get("bbox", [0, 0, 0, 0])
+            # Guard: empty result or all-zero bbox means AI couldn't locate the element
+            if not result or bbox == [0, 0, 0, 0]:
+                logger.warning("AI操作: AI returned no valid bbox, skipping action")
+                allure.attach(str(result), "AI Empty Result", allure.attachment_type.TEXT)
+                self.screenshot()
+                return
             result["bbox"] = self._scale_bbox(bbox, w, h, iw, ih)
             action = result.get("action")
             if action == "点击":
@@ -143,6 +162,11 @@ class AIMixin:
     @allure.step("AI Assert")
     def AI断言(self, **kwargs):
         """Single-step AI assertion: vision judges whether assertion is true."""
+        if not cfg.get("HAT_LLM_API_KEY"):
+            raise RuntimeError("HAT_LLM_API_KEY not configured")
+        if not cfg.get("HAT_LLM_MODEL_NAME"):
+            raise RuntimeError("HAT_LLM_MODEL_NAME not configured")
+
         prompt = (
             "## Goal\n- Judge whether the user's assertion about the screenshot is true.\n"
             "## Output\n```json\n{{\n"
@@ -167,6 +191,11 @@ class AIMixin:
     @allure.step("AI Execute (multi-turn)")
     def AI执行(self, **kwargs):
         """Multi-turn AI agent: natural language goal → looped screenshot+act until done."""
+        if not cfg.get("HAT_LLM_API_KEY"):
+            raise RuntimeError("HAT_LLM_API_KEY not configured")
+        if not cfg.get("HAT_LLM_MODEL_NAME"):
+            raise RuntimeError("HAT_LLM_MODEL_NAME not configured")
+
         goal = str(kwargs.get("操作描述", ""))
         max_steps = int(kwargs.get("最大步数", 5))
         history: list[str] = []
@@ -240,11 +269,13 @@ class AIMixin:
             allure.attach("\n".join(history), "AI History", allure.attachment_type.TEXT)
             self.screenshot()
 
+    @allure.step("AI Click at coordinates")
     def click_location(self, **kwargs):
         x, y = [float(v.strip()) for v in str(kwargs.get("坐标", "0,0")).split(",")]
         self.page.mouse.click(x, y)
         self.screenshot()
 
+    @allure.step("AI Input at coordinates")
     def input_location(self, **kwargs):
         self.click_location(**kwargs)
         self.page.keyboard.type(str(kwargs.get("文本", "")), delay=30)

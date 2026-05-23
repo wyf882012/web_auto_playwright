@@ -9,13 +9,10 @@ Playwright semantic locator chain (auto-wait, no manual wait_for_selector):
 """
 
 import base64
-import json
 import os
 import random
-import re
 import sys
 import time
-import uuid
 
 import allure
 import pymysql
@@ -43,7 +40,8 @@ class Keywords(AIMixin):
     def _locator(self, **kwargs):
         """Return the Playwright Locator for the element named in kwargs.
 
-        Priority: semantic _locators dict → legacy _elements + selector string.
+        Priority chain: semantic _locators (YAML-built) → legacy _elements (context.xlsx).
+        Semantic locators use Playwright's built-in auto-wait; legacy uses CSS/XPath strings.
         """
         key = str(kwargs.get("_页面元素", ""))
         loc_map = cfg.get("_locators") or {}
@@ -56,6 +54,7 @@ class Keywords(AIMixin):
         return self.page.locator(selector)
 
     def _legacy_selector(self, key: str, **kwargs) -> str:
+        """Build a CSS/XPath selector string from old-style _elements config."""
         elements = cfg.get("_elements") or {}
         if key not in elements:
             raise KeyError(f"Element '{key}' not found in _locators or _elements")
@@ -461,9 +460,11 @@ class Keywords(AIMixin):
     #  Variables
     # ══════════════════════════════════════════════════════════
 
+    @allure.step("Store Variable")
     def store_text(self, **kwargs):
         cfg.set(kwargs.get("变量名", "store_var"), kwargs.get("变量值", ""))
 
+    @allure.step("Random 6-digit")
     def random_six_digit_number(self, **kwargs):
         val = random.randint(100000, 999999)
         cfg.set(kwargs.get("变量名", "random_6"), val)
@@ -474,12 +475,27 @@ class Keywords(AIMixin):
     # ══════════════════════════════════════════════════════════
 
     def 提取数据MYSQL(self, **kwargs):
-        db_cfg = cfg.get("_database", {})[kwargs["_数据库"]]
-        conn = pymysql.connect(cursorclass=cursors.DictCursor, **db_cfg)
-        cur = conn.cursor()
-        cur.execute(kwargs["SQL"])
-        rows = cur.fetchall()
-        cur.close(); conn.close()
+        db_alias = kwargs["_数据库"]
+        db_cfg = cfg.get("_database", {})
+        if db_alias not in db_cfg:
+            raise KeyError(f"Database alias '{db_alias}' not found in context config. "
+                           f"Available: {list(db_cfg)}")
+        try:
+            conn = pymysql.connect(cursorclass=cursors.DictCursor, **db_cfg[db_alias])
+            cur = conn.cursor()
+            cur.execute(kwargs["SQL"])
+            rows = cur.fetchall()
+        except Exception as e:
+            raise RuntimeError(
+                f"Database query failed [{db_alias}]: {e}\n"
+                f"SQL: {kwargs.get('SQL', '')[:200]}"
+            ) from e
+        finally:
+            try:
+                cur.close()
+                conn.close()
+            except Exception:
+                pass
 
         var_names = kwargs.get("变量名", [])
         result = {}
@@ -500,6 +516,7 @@ class Keywords(AIMixin):
     #  CAPTCHA recognition (ddddocr)
     # ══════════════════════════════════════════════════════════
 
+    @allure.step("OCR Recognition")
     def image_recognition(self, **kwargs):
         logger.info("Starting OCR...")
         ocr = DdddOcr()
@@ -516,6 +533,7 @@ class Keywords(AIMixin):
     #  External custom keywords (ex_invoke)
     # ══════════════════════════════════════════════════════════
 
+    @allure.step("Custom Keyword")
     def ex_invoke(self, **kwargs):
         key = kwargs.get("key", "")
         step_value = kwargs.get("step_value", {})

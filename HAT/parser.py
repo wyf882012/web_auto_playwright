@@ -57,10 +57,6 @@ def _coerce(s: str):
         return s
 
 
-def _safe_filename(name: str, max_len: int = 50) -> str:
-    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(name))
-    return safe[:max_len]
-
 
 # ═══════════════════════════════════════════════════════════════
 #  Context loading

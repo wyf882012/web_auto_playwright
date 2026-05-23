@@ -48,15 +48,6 @@ def pytest_configure(config):
         logger.warning(f"Failed to write allure environment: {e}")
 
 
-def pytest_collection_modifyitems(items):
-    """Fix unicode-escaped Chinese test names."""
-    for item in items:
-        try:
-            item.name = item.name.encode("utf-8").decode("unicode_escape")
-            item._nodeid = item.nodeid.encode("utf-8").decode("unicode_escape")
-        except Exception:
-            pass
-
 
 @pytest.fixture(scope="session")
 def hat_version():

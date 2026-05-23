@@ -20,6 +20,7 @@ from loguru import logger
 from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
 
 from HAT.config import cfg
+from HAT.utils import _safe_filename
 
 # Shared browser state (used when session_reuse=True)
 _shared_playwright = None
@@ -167,9 +168,6 @@ class BrowserManager:
             if self.playwright:
                 self.playwright.stop()
 
-
-def _safe_filename(name: str, max_len: int = 50) -> str:
-    return "".join(c if c.isalnum() or c in "-_" else "_" for c in str(name))[:max_len]
 
 
 def _attach_slideshow(images: list, title="Screenshot Replay"):

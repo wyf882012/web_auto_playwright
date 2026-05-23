@@ -14,7 +14,6 @@ Usage in subclasses:
 """
 
 import time
-from types import SimpleNamespace
 
 import allure
 from playwright.sync_api import expect
@@ -31,21 +30,25 @@ class BasePage:
 
     # ── locator helpers ────────────────────────────────────────
 
+    @allure.step("POM: Click element")
     def click(self, locator, timeout: int = 10000):
         locator.click(timeout=timeout)
         self.kw.screenshot()
 
+    @allure.step("POM: Fill field")
     def fill(self, locator, text: str, timeout: int = 10000, clear: bool = True):
         if clear:
             locator.clear()
         locator.fill(str(text), timeout=timeout)
         self.kw.screenshot()
 
+    @allure.step("POM: Check checkbox")
     def check(self, locator, timeout: int = 10000):
         """Check a checkbox (click-compatible for custom-styled checkboxes)."""
         locator.click(timeout=timeout)
         self.kw.screenshot()
 
+    @allure.step("POM: Get element text")
     def get_text(self, locator, timeout: int = 10000) -> str:
         try:
             expect(locator).to_be_visible(timeout=timeout)
@@ -53,6 +56,7 @@ class BasePage:
         except Exception:
             return ""
 
+    @allure.step("POM: Check visibility")
     def is_visible(self, locator, timeout: int = 3000) -> bool:
         try:
             expect(locator).to_be_visible(timeout=timeout)
@@ -60,6 +64,7 @@ class BasePage:
         except Exception:
             return False
 
+    @allure.step("POM: Assert visible")
     def assert_visible(self, locator, timeout: int = 10000):
         try:
             expect(locator).to_be_visible(timeout=timeout)
@@ -94,5 +99,6 @@ class BasePage:
     def get_title(self) -> str:
         return self.page.title()
 
+    @allure.step("POM: Wait")
     def wait(self, seconds: float = 1.0):
         time.sleep(float(seconds))

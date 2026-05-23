@@ -14,9 +14,6 @@ def set_step_name(name: str):
     _current_step_name.value = name
 
 
-def get_step_name() -> str:
-    return getattr(_current_step_name, "value", "")
-
 
 @contextlib.contextmanager
 def allure_step_with_log(step_name: str):

@@ -47,15 +47,6 @@ class TestRunner:
         cls._pages["VideoPage"] = VideoPage(keywords)
 
     @classmethod
-    def _invoke_ai(cls, key: str, params: dict, keywords):
-        """Dispatch 'AI:操作' / 'AI:断言' to Keywords AI methods."""
-        action = key[3:]  # Strip "AI:" prefix
-        method = getattr(keywords, action, None)
-        if method is None:
-            raise AttributeError(f"Unknown AI action: '{action}'")
-        method(**{k: v for k, v in params.items() if k != "操作类型"})
-
-    @classmethod
     def _invoke_pom(cls, key: str, params: dict):
         """Resolve 'PageClass.method' and invoke it."""
         dot = key.index(".")
@@ -64,11 +55,20 @@ class TestRunner:
         if page is None:
             raise KeyError(f"Page '{cls_name}' not registered. "
                            f"Available: {list(cls._pages)}")
-        func = getattr(page, method)
-        # Remove framework-internal keys from call params
+        func = getattr(page, method, None)
+        if func is None:
+            raise AttributeError(
+                f"Page '{cls_name}' has no method '{method}'. "
+                f"Available methods: {[m for m in dir(page) if not m.startswith('_')]}")
         call = {k: v for k, v in params.items()
                 if k not in ("操作类型", "_页面元素", "INDEX")}
-        func(**call)
+        try:
+            func(**call)
+        except TypeError as e:
+            raise TypeError(
+                f"POM call '{key}' failed with wrong arguments: {e}. "
+                f"Provided: {list(call)}"
+            ) from e
 
     def test_case(self, caseinfo: dict):
         """Execute one test case (pytest parametrized entry)."""
