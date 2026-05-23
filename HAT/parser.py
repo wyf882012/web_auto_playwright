@@ -24,6 +24,8 @@ from typing import List, Optional
 import pandas as pd
 import yaml
 
+from HAT.operation_types import validate as validate_op
+
 from HAT.config import cfg
 
 
@@ -231,6 +233,14 @@ def _group_rows(rows: List[dict]) -> List[dict]:
         action = row.get("操作类型", "")
         params = _parse_kv(row.get("数据内容"))
         params["操作类型"] = action
+
+        ok, err = validate_op(action)
+        if not ok:
+            raise ValueError(
+                f"Invalid 操作类型 in case '{title}', step '{step_name}': {err}\n"
+                f"  Tip: Run 'python main.py --list-operations' to see all valid operations."
+            )
+
         current["用例步骤"].append({step_name: params})
     if current:
         result.append(current)
