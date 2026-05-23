@@ -26,6 +26,33 @@ from pymysql import cursors
 
 from HAT.config import cfg
 from HAT.utils.step_logger import _current_step_name
+from typing import Protocol
+
+
+class AIVisionProvider(Protocol):
+    """Vision model provider protocol — implement to support different AI vendors."""
+
+    def resize(self, width: int, height: int) -> tuple[int, int]:
+        """Return (resize_width, resize_height) for the provider's preferred input."""
+        ...
+
+    def get_min_max_pixels(self) -> tuple[int, int]:
+        """Return (min_pixels, max_pixels) for the provider."""
+        ...
+
+
+class QwenVLProvider:
+    """Default provider for Qwen-VL compatible APIs (uses smart_resize)."""
+
+    def resize(self, width: int, height: int) -> tuple[int, int]:
+        from qwen_vl_utils import smart_resize
+        min_px, max_px = self.get_min_max_pixels()
+        ih, iw = smart_resize(height, width, factor=1.0,
+                              min_pixels=min_px, max_pixels=max_px)
+        return iw, ih
+
+    def get_min_max_pixels(self) -> tuple[int, int]:
+        return 512 * 28 * 28, 2048 * 28 * 28
 
 
 class Keywords:
@@ -493,13 +520,19 @@ class Keywords:
 
     def _ai_call(self, prompt: str):
         """Screenshot + prompt → vision model → parsed JSON + image dimensions."""
+        if not cfg.get("HAT_LLM_API_KEY"):
+            raise RuntimeError(
+                "HAT_LLM_API_KEY not configured. "
+                "Set env var HAT_LLM_API_KEY or add to context config."
+            )
         from openai import OpenAI
         from PIL import Image
-        from qwen_vl_utils import smart_resize
 
         client = OpenAI(
             api_key=cfg.get("HAT_LLM_API_KEY"),
             base_url=cfg.get("HAT_LLM_BASE_URL"),
+            timeout=float(cfg.get("HAT_LLM_TIMEOUT", 60)),
+            max_retries=int(cfg.get("HAT_LLM_MAX_RETRIES", 2)),
         )
         img_bytes = self.page.screenshot(full_page=False)
         b64 = base64.b64encode(img_bytes).decode("ascii")
@@ -510,10 +543,11 @@ class Keywords:
         width, height = Image.open(tmp).size
         os.remove(tmp)
 
-        min_px, max_px = 512 * 28 * 28, 2048 * 28 * 28
-        ih, iw = smart_resize(height, width, factor=1.0,
-                              min_pixels=min_px, max_pixels=max_px)
+        provider = cfg.get("_ai_provider") or QwenVLProvider()
+        iw, ih = provider.resize(width, height)
+        min_px, max_px = provider.get_min_max_pixels()
 
+        t_start = time.time()
         completion = client.chat.completions.create(
             model=cfg.get("HAT_LLM_MODEL_NAME"),
             messages=[{"role": "user", "content": [
@@ -522,11 +556,18 @@ class Keywords:
                 {"type": "text", "text": prompt},
             ]}],
         )
+        elapsed = time.time() - t_start
+
         resp = json.loads(completion.model_dump_json())
         content = resp["choices"][0]["message"]["content"]
+
+        allure.attach(prompt[:2000], "AI Prompt", allure.attachment_type.TEXT)
+        allure.attach(content[:2000], "AI Response", allure.attachment_type.TEXT)
+        allure.attach(f"{elapsed:.2f}s", "AI Latency", allure.attachment_type.TEXT)
+
         m = re.search(r"```json\n(.*?)```", content, re.DOTALL)
         if m is None:
-            logger.warning(f"No JSON block in response: {content[:200]}")
+            logger.warning(f"No JSON block in AI response: {content[:200]}")
             return {}, width, height, iw, ih
         return json.loads(m.group(1)), width, height, iw, ih
 
