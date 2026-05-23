@@ -525,6 +525,11 @@ class Keywords:
                 "HAT_LLM_API_KEY not configured. "
                 "Set env var HAT_LLM_API_KEY or add to context config."
             )
+        if not cfg.get("HAT_LLM_MODEL_NAME"):
+            raise RuntimeError(
+                "HAT_LLM_MODEL_NAME not configured. "
+                "Set env var HAT_LLM_MODEL_NAME or add to context config."
+            )
         from openai import OpenAI
         from PIL import Image
 
@@ -538,12 +543,18 @@ class Keywords:
         b64 = base64.b64encode(img_bytes).decode("ascii")
 
         tmp = os.path.join(os.path.dirname(__file__), f"{uuid.uuid4().hex}.png")
-        with open(tmp, "wb") as f:
-            f.write(img_bytes)
-        width, height = Image.open(tmp).size
-        os.remove(tmp)
+        try:
+            with open(tmp, "wb") as f:
+                f.write(img_bytes)
+            with Image.open(tmp) as img:
+                width, height = img.size
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
 
-        provider = cfg.get("_ai_provider") or QwenVLProvider()
+        provider = cfg.get("_ai_provider")
+        if not callable(getattr(provider, "resize", None)):
+            provider = QwenVLProvider()
         iw, ih = provider.resize(width, height)
         min_px, max_px = provider.get_min_max_pixels()
 
@@ -559,7 +570,7 @@ class Keywords:
         elapsed = time.time() - t_start
 
         resp = json.loads(completion.model_dump_json())
-        content = resp["choices"][0]["message"]["content"]
+        content = resp["choices"][0]["message"]["content"] or ""
 
         allure.attach(prompt[:2000], "AI Prompt", allure.attachment_type.TEXT)
         allure.attach(content[:2000], "AI Response", allure.attachment_type.TEXT)
@@ -569,7 +580,11 @@ class Keywords:
         if m is None:
             logger.warning(f"No JSON block in AI response: {content[:200]}")
             return {}, width, height, iw, ih
-        return json.loads(m.group(1)), width, height, iw, ih
+        try:
+            return json.loads(m.group(1)), width, height, iw, ih
+        except json.JSONDecodeError as e:
+            logger.warning(f"Invalid JSON in AI response: {e}")
+            return {}, width, height, iw, ih
 
     def _ai_vision(self, prompt_template: str, user_text: str, extra_vars=None):
         vars_ = {"user_text": user_text}
