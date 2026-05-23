@@ -518,6 +518,17 @@ class Keywords:
     #  AI vision operations (OpenAI-compatible)
     # ══════════════════════════════════════════════════════════
 
+    @staticmethod
+    def _scale_bbox(bbox, w, h, iw, ih):
+        """Scale bbox from model-input size to original screenshot size."""
+        return [bbox[0] / iw * w, bbox[1] / ih * h,
+                bbox[2] / iw * w, bbox[3] / ih * h]
+
+    @staticmethod
+    def _bbox_center(bbox):
+        """Return (center_x, center_y) of a bbox."""
+        return (bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2
+
     def _ai_call(self, prompt: str):
         """Screenshot + prompt → vision model → parsed JSON + image dimensions."""
         if not cfg.get("HAT_LLM_API_KEY"):
@@ -592,7 +603,9 @@ class Keywords:
             vars_.update(extra_vars)
         return self._ai_call(prompt_template.format(**vars_))
 
+    @allure.step("AI Click/Input/Extract")
     def AI操作(self, **kwargs):
+        """Single-step AI action: vision locates element → click/input/extract."""
         actions = ["点击", "输入", "文本提取"]
         prompt = (
             "## Goal\n- Identify the element in the screenshot matching the user's description.\n"
@@ -604,30 +617,34 @@ class Keywords:
             "}}\n```\nSingle JSON object only.\n"
             "## User description\n{user_text}\n"
         )
-        result, w, h, iw, ih = self._ai_vision(
-            prompt, kwargs.get("操作描述", ""),
-            extra_vars={"actions": ", ".join(actions)},
-        )
-        bbox = result["bbox"]
-        # Scale bbox from model-input size back to original screenshot size
-        result["bbox"] = [bbox[0] / iw * w, bbox[1] / ih * h,
-                          bbox[2] / iw * w, bbox[3] / ih * h]
-        action = result.get("action")
-        if action == "点击":
-            x = (result["bbox"][0] + result["bbox"][2]) / 2
-            y = (result["bbox"][1] + result["bbox"][3]) / 2
-            self.click_location(坐标=f"{x},{y}")
-        elif action == "输入":
-            x = (result["bbox"][0] + result["bbox"][2]) / 2
-            y = (result["bbox"][1] + result["bbox"][3]) / 2
-            self.input_location(坐标=f"{x},{y}", 文本=result.get("text", ""))
-        elif action == "文本提取":
-            cfg.set("ai_value", result.get("text", ""))
-        else:
-            raise ValueError(f"Unknown AI action: {result.get('action')}")
-        self.screenshot()
+        try:
+            result, w, h, iw, ih = self._ai_vision(
+                prompt, kwargs.get("操作描述", ""),
+                extra_vars={"actions": ", ".join(actions)},
+            )
+            bbox = result.get("bbox", [0, 0, 0, 0])
+            result["bbox"] = self._scale_bbox(bbox, w, h, iw, ih)
+            action = result.get("action")
+            if action == "点击":
+                x, y = self._bbox_center(result["bbox"])
+                self.click_location(坐标=f"{x},{y}")
+            elif action == "输入":
+                x, y = self._bbox_center(result["bbox"])
+                self.input_location(坐标=f"{x},{y}", 文本=result.get("text", ""))
+            elif action == "文本提取":
+                cfg.set("ai_value", result.get("text", ""))
+            else:
+                logger.warning(f"AI操作: unknown action '{action}'")
+                allure.attach(f"Unknown action: {action}", "AI Warning", allure.attachment_type.TEXT)
+            self.screenshot()
+        except Exception as e:
+            logger.warning(f"AI操作 failed (downgraded): {e}")
+            allure.attach(str(e), "AI Action Error", allure.attachment_type.TEXT)
+            self.screenshot()
 
+    @allure.step("AI Assert")
     def AI断言(self, **kwargs):
+        """Single-step AI assertion: vision judges whether assertion is true."""
         prompt = (
             "## Goal\n- Judge whether the user's assertion about the screenshot is true.\n"
             "## Output\n```json\n{{\n"
@@ -635,79 +652,94 @@ class Keywords:
             '  "msg": "reasoning"\n'
             "}}\n```\n## User assertion\n{user_text}\n"
         )
-        result, *_ = self._ai_vision(prompt, kwargs.get("操作描述", ""))
-        assert str(result.get("result", "")).lower() == "true", \
-            result.get("msg", "AI assertion failed")
+        try:
+            result, *_ = self._ai_vision(prompt, kwargs.get("操作描述", ""))
+            passed = str(result.get("result", "")).lower() == "true"
+            if not passed:
+                msg = result.get("msg", "AI assertion failed")
+                logger.warning(f"AI断言 failed: {msg}")
+                allure.attach(msg, "AI Assertion Failure", allure.attachment_type.TEXT)
+            else:
+                logger.info(f"AI断言 passed: {result.get('msg', '')}")
+        except Exception as e:
+            logger.warning(f"AI断言 error (downgraded): {e}")
+            allure.attach(str(e), "AI Assertion Error", allure.attachment_type.TEXT)
+        self.screenshot()
 
     @allure.step("AI Execute (multi-turn)")
     def AI执行(self, **kwargs):
-        """Multi-turn AI agent: natural language goal → looped screenshot+act until done.
-
-        Each iteration a fresh screenshot is sent so the model sees UI state changes.
-        Max iterations controlled by *最大步数* (default 5).
-        """
+        """Multi-turn AI agent: natural language goal → looped screenshot+act until done."""
         goal = str(kwargs.get("操作描述", ""))
         max_steps = int(kwargs.get("最大步数", 5))
         history: list[str] = []
 
-        for step in range(max_steps):
-            ctx = "\n".join(history) if history else "(start)"
-            prompt = (
-                "## Role\n"
-                "You are a web automation agent. Your goal is to execute the user's "
-                "instruction step by step on the current page screenshot.\n\n"
-                "## User Goal\n{goal}\n\n"
-                "## Actions Taken So Far\n{ctx}\n\n"
-                "## Instructions\n"
-                "Based on the screenshot, decide the NEXT SINGLE action. "
-                "If the goal is already achieved, return action='done'.\n"
-                "If you need to verify something, return action='assert'.\n\n"
-                "## Output (JSON only, in ```json code block)\n"
-                "{{\n"
-                '  "action": "click|input|assert|done",\n'
-                '  "target_desc": "what element you are interacting with",\n'
-                '  "bbox": [xmin, ymin, xmax, ymax],\n'
-                '  "text": "text to type (input only)",\n'
-                '  "assert_result": true/false,\n'
-                '  "assert_reason": "why assertion passed/failed"\n'
-                "}}\n"
-            ).format(goal=goal, ctx=ctx)
+        try:
+            for step in range(max_steps):
+                ctx = "\n".join(history) if history else "(start)"
+                prompt = (
+                    "## Role\n"
+                    "You are a web automation agent. Your goal is to execute the user's "
+                    "instruction step by step on the current page screenshot.\n\n"
+                    "## User Goal\n{goal}\n\n"
+                    "## Actions Taken So Far\n{ctx}\n\n"
+                    "## Instructions\n"
+                    "Based on the screenshot, decide the NEXT SINGLE action. "
+                    "If the goal is already achieved, return action='done'.\n"
+                    "If you need to verify something, return action='assert'.\n\n"
+                    "## Output (JSON only, in ```json code block)\n"
+                    "{{\n"
+                    '  "action": "click|input|assert|done",\n'
+                    '  "target_desc": "what element you are interacting with",\n'
+                    '  "bbox": [xmin, ymin, xmax, ymax],\n'
+                    '  "text": "text to type (input only)",\n'
+                    '  "assert_result": true/false,\n'
+                    '  "assert_reason": "why assertion passed/failed"\n'
+                    "}}\n"
+                ).format(goal=goal, ctx=ctx)
 
-            result, w, h, iw, ih = self._ai_call(prompt)
-            action = result.get("action", "done")
-            desc = result.get("target_desc", "")
+                result, w, h, iw, ih = self._ai_call(prompt)
+                action = result.get("action", "done")
+                desc = result.get("target_desc", "")
 
-            if action == "click":
-                bbox = result.get("bbox", [0, 0, 0, 0])
-                x = (bbox[0] / iw * w + bbox[2] / iw * w) / 2
-                y = (bbox[1] / ih * h + bbox[3] / ih * h) / 2
-                self.page.mouse.click(x, y)
-                self.page.wait_for_timeout(1500)
-                history.append(f"clicked '{desc}'")
-                self.screenshot()
-            elif action == "input":
-                bbox = result.get("bbox", [0, 0, 0, 0])
-                x = (bbox[0] / iw * w + bbox[2] / iw * w) / 2
-                y = (bbox[1] / ih * h + bbox[3] / ih * h) / 2
-                self.page.mouse.click(x, y)
-                self.page.keyboard.type(str(result.get("text", "")), delay=30)
-                history.append(f"typed '{result.get('text', '')}' into '{desc}'")
-                self.screenshot()
-            elif action == "assert":
-                if not result.get("assert_result", False):
-                    msg = result.get("assert_reason", "AI assertion failed")
+                if action == "click":
+                    bbox = result.get("bbox", [0, 0, 0, 0])
+                    bbox = self._scale_bbox(bbox, w, h, iw, ih)
+                    x, y = self._bbox_center(bbox)
+                    self.page.mouse.click(x, y)
+                    self.page.wait_for_timeout(1500)
+                    history.append(f"clicked '{desc}'")
                     self.screenshot()
-                    raise AssertionError(msg)
-                history.append(f"assertion passed: {result.get('assert_reason', '')}")
-                break
-            elif action == "done":
-                history.append("goal achieved")
-                break
+                elif action == "input":
+                    bbox = result.get("bbox", [0, 0, 0, 0])
+                    bbox = self._scale_bbox(bbox, w, h, iw, ih)
+                    x, y = self._bbox_center(bbox)
+                    self.page.mouse.click(x, y)
+                    self.page.keyboard.type(str(result.get("text", "")), delay=30)
+                    history.append(f"typed into '{desc}'")
+                    self.screenshot()
+                elif action == "assert":
+                    if not result.get("assert_result", False):
+                        msg = result.get("assert_reason", "AI assertion failed")
+                        logger.warning(f"AI执行 assertion failed: {msg}")
+                        allure.attach(msg, "AI Assertion Failure", allure.attachment_type.TEXT)
+                    else:
+                        history.append(f"assertion passed: {result.get('assert_reason', '')}")
+                    self.screenshot()
+                    break
+                elif action == "done":
+                    history.append("goal achieved")
+                    break
+                else:
+                    logger.warning(f"Unknown AI action: {action}, skipping")
+                    history.append(f"unknown action '{action}', skipped")
             else:
-                logger.warning(f"Unknown AI action: {action}, skipping")
-                history.append(f"unknown action '{action}', skipped")
-        else:
-            logger.warning(f"AI执行: max steps ({max_steps}) reached without completion")
+                logger.warning(f"AI执行: max steps ({max_steps}) reached without completion")
+                allure.attach("\n".join(history), "AI History (incomplete)", allure.attachment_type.TEXT)
+                self.screenshot()
+        except Exception as e:
+            logger.warning(f"AI执行 error (downgraded): {e}")
+            allure.attach(str(e), "AI Execution Error", allure.attachment_type.TEXT)
+            allure.attach("\n".join(history), "AI History", allure.attachment_type.TEXT)
             self.screenshot()
 
     def click_location(self, **kwargs):
