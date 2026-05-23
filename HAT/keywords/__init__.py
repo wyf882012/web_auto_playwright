@@ -123,22 +123,46 @@ class Keywords(AIMixin):
     #  Element interaction
     # ══════════════════════════════════════════════════════════
 
+    def _should_fallback(self) -> bool:
+        return os.getenv("HAT_AI_FALLBACK", "true").lower() == "true"
+
     @allure.step("Click")
     def 点击元素(self, **kwargs):
-        loc = self._locator(**kwargs)
-        expect(loc).to_be_visible(timeout=int(kwargs.get("超时", 10000)))
-        loc.click()
+        try:
+            loc = self._locator(**kwargs)
+            expect(loc).to_be_visible(timeout=int(kwargs.get("超时", 10000)))
+            loc.click()
+        except Exception as e:
+            if not self._should_fallback():
+                raise
+            desc = kwargs.get("_页面元素", "")
+            logger.warning(f"Traditional click '{desc}' failed: {e} → falling back to AI")
+            allure.attach(
+                f"Traditional locator failed for '{desc}', falling back to AI visual positioning",
+                "AI Fallback", allure.attachment_type.TEXT)
+            self.AI操作(操作描述=f"点击{desc}" if desc else kwargs.get("操作描述", "点击目标元素"))
         self.screenshot()
 
     @allure.step("Fill")
     def 输入内容(self, **kwargs):
-        loc = self._locator(**kwargs)
-        content = str(kwargs.get("数据内容", ""))
-        timeout = int(kwargs.get("超时", 10000))
-        expect(loc).to_be_visible(timeout=timeout)
-        if kwargs.get("先清除", True):
-            loc.clear()
-        loc.fill(content)
+        try:
+            loc = self._locator(**kwargs)
+            content = str(kwargs.get("数据内容", ""))
+            timeout = int(kwargs.get("超时", 10000))
+            expect(loc).to_be_visible(timeout=timeout)
+            if kwargs.get("先清除", True):
+                loc.clear()
+            loc.fill(content)
+        except Exception as e:
+            if not self._should_fallback():
+                raise
+            desc = kwargs.get("_页面元素", "")
+            logger.warning(f"Traditional fill '{desc}' failed: {e} → falling back to AI")
+            allure.attach(
+                f"Traditional locator failed for '{desc}', falling back to AI visual input",
+                "AI Fallback", allure.attachment_type.TEXT)
+            self.AI操作(操作描述=f"在{desc}输入{kwargs.get('数据内容', '')}"
+                       if desc else f"输入{kwargs.get('数据内容', '')}")
         self.screenshot()
 
     @allure.step("Type (append)")
