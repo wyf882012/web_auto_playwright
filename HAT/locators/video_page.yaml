@@ -1,0 +1,24 @@
+# reelmate.cn video generation page locators (Playwright semantic locators)
+# Priority: role > label > placeholder > text > testid > css > xpath
+
+# ── Video generation page elements ──
+ref_video_tab:
+  type: text
+  value: "参考生视频"
+
+multi_grid_mode:
+  type: text
+  value: "多宫格模式"
+
+tgi2_option:
+  type: text
+  value: "TGI 2"
+
+video_model_dropdown:
+  type: role
+  role: combobox
+  name: "视频模型"
+
+seedance_option:
+  type: text
+  value: "Seedance 2.0VIP"

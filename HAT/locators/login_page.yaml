@@ -1,0 +1,45 @@
+# reelmate.cn login page locators (Playwright semantic locators)
+# Priority: role > label > placeholder > text > testid > css > xpath
+
+# ── Home page ──
+login_entry_btn:
+  type: role
+  role: button
+  name: "立即登录"
+
+# ── Inside login dialog iframe (#loginDialog iframe) ──
+password_login_tab:
+  type: role
+  role: tab
+  name: "密码登录"
+  frame: "#loginDialog iframe"
+
+username_input:
+  type: placeholder
+  value: "请输入手机号/邮箱"
+  frame: "#loginDialog iframe"
+
+password_input:
+  type: placeholder
+  value: "请输入密码"
+  frame: "#loginDialog iframe"
+
+agreement_checkbox:
+  type: text
+  value: "我已阅读并同意"
+  frame: "#loginDialog iframe"
+
+login_submit_btn:
+  type: role
+  role: button
+  name: "立即登录"
+  frame: "#loginDialog iframe"
+
+# ── Global elements (outside iframe) ──
+error_message:
+  type: css
+  value: '[class*="error"], [class*="alert"], [class*="msg"]'
+
+user_avatar:
+  type: css
+  value: '[class*="avatar"], [class*="user"], [class*="nickname"]'
