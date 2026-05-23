@@ -18,11 +18,11 @@ import allure
 from loguru import logger
 from tqdm import tqdm
 
-from HAT.browser import BrowserManager
-from HAT.config import cfg
+from HAT.core.browser import BrowserManager
+from HAT.core.config import cfg
 from HAT.keywords import Keywords
-from HAT.operation_types import categorize, OpCategory
-from HAT.template import render
+from HAT.core.operation_types import categorize, OpCategory
+from HAT.utils.template import render
 from HAT.utils.step_logger import allure_step_with_log
 
 

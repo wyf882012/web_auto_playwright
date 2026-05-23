@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import allure
 from playwright.sync_api import expect
 
-from HAT.locator import LocatorBuilder
+from HAT.locators import LocatorBuilder
 from HAT.pages.base import BasePage
 
 
@@ -67,7 +67,7 @@ class VideoPage(BasePage):
 
     @allure.step("POM: Get dropdown options text")
     def get_dropdown_options(self, var_name: str = "dropdown_options"):
-        from HAT.config import cfg
+        from HAT.core.config import cfg
         self.open_video_model_dropdown()
         loc = self.locators.video_model_dropdown
         options = loc.locator("option").all_text_contents() or loc.locator("[role='option']").all_text_contents()

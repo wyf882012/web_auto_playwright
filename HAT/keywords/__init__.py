@@ -22,7 +22,7 @@ from playwright.sync_api import expect
 from pymysql import cursors
 
 from HAT.ai import AIMixin
-from HAT.config import cfg
+from HAT.core.config import cfg
 from HAT.utils.step_logger import _current_step_name
 
 

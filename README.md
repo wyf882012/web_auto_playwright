@@ -37,35 +37,39 @@
 
 ```
 main.py (CLI 入口 → argparse → pytest → Allure 报告)
-  └─ HAT/plugin.py          pytest 插件 (--type, --cases, --keyDir)
-       └─ HAT/parser.py      Excel/YAML 解析 → DDT 展开 → {case_infos, case_names}
-            └─ HAT/runner.py  TestRunner.test_case() — pytest parametrize 每用例
+  └─ HAT/core/plugin.py       pytest 插件 (--type, --cases, --keyDir)
+       └─ HAT/core/parser.py   Excel/YAML 解析 → DDT 展开 → {case_infos, case_names}
+            └─ HAT/core/runner.py  TestRunner.test_case() — pytest parametrize 每用例
 
 HAT/
-├── ai/                        AI 视觉模块
-│   ├── __init__.py            AIMixin: AI操作 / AI断言 / AI执行
-│   └── provider.py            AIVisionProvider Protocol + QwenVLProvider
+├── core/                     框架核心
+│   ├── config.py             Config 单例: 全局上下文存储
+│   ├── browser.py            BrowserManager: Playwright 浏览器生命周期
+│   ├── runner.py             TestRunner: 五分类 dispatch + 用例生命周期
+│   ├── plugin.py             pytest 钩子 + CasesPlugin
+│   ├── parser.py             用例解析 + DDT + 操作类型验证
+│   └── operation_types.py    操作类型注册表 (61 entries, 7 categories)
+├── ai/                       AI 视觉模块
+│   ├── __init__.py           AIMixin: AI操作 / AI断言 / AI执行
+│   └── provider.py           AIVisionProvider Protocol + QwenVLProvider
 ├── keywords/
-│   └── __init__.py            Keywords(AIMixin): 50+ 传统关键字 + AI 方法
-├── pages/                     POM 页面对象
-│   ├── base.py                BasePage: click/fill/assert 等基类方法
-│   ├── login.py               reelmate.cn 登录页
-│   └── video.py               reelmate.cn 视频生成页
-├── locators/                  YAML 语义定位器文件
+│   └── __init__.py           Keywords(AIMixin): 50+ 传统关键字 + AI 方法
+├── pages/                    POM 页面对象
+│   ├── base.py               BasePage: click/fill/assert 等基类方法
+│   ├── login.py              reelmate.cn 登录页
+│   └── video.py              reelmate.cn 视频生成页
+├── locators/                 语义定位器
+│   ├── __init__.py           重导出 LocatorBuilder
+│   ├── builder.py            LocatorBuilder: YAML → Playwright Locator
 │   ├── login_page.yaml
 │   └── video_page.yaml
-├── utils/
-│   ├── __init__.py            共享工具 (_safe_filename)
-│   ├── step_logger.py         Allure 步骤上下文管理
-│   └── script.py              前置/后置脚本动态执行
-├── runner.py                  TestRunner: 五分类 dispatch + 用例生命周期
-├── parser.py                  用例解析 + DDT + 操作类型验证
-├── browser.py                 BrowserManager: Playwright 浏览器生命周期
-├── config.py                  Config 单例: 全局上下文存储
-├── locator.py                 LocatorBuilder: YAML → Playwright Locator
-├── template.py                Jinja2 变量渲染
-├── operation_types.py         操作类型注册表 (61 entries, 7 categories)
-└── plugin.py                  pytest 钩子 + CasesPlugin
+├── utils/                    工具
+│   ├── __init__.py           共享 _safe_filename
+│   ├── template.py           Jinja2 变量渲染
+│   ├── step_logger.py        Allure 步骤上下文管理
+│   └── script.py             前置/后置脚本动态执行
+└── extend/
+    └── allure_combine/       Allure 单文件报告合并
 ```
 
 ### 五级操作分类
@@ -181,7 +185,7 @@ python main.py --list-operations
 ### API (供框架内部使用)
 
 ```python
-from HAT.operation_types import categorize, is_ai, is_assertion, validate, OpCategory
+from HAT.core.operation_types import categorize, is_ai, is_assertion, validate, OpCategory
 
 categorize("AI:操作")     # → OpCategory.AI_ATOMIC
 is_ai("AI:断言")          # → True

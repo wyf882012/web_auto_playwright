@@ -41,7 +41,7 @@ logger.configure(handlers=[
 
 def _print_operations():
     """List all available operation types grouped by category."""
-    from HAT.operation_types import list_by_category, OpCategory
+    from HAT.core.operation_types import list_by_category, OpCategory
 
     grouped = list_by_category()
     print()
@@ -122,8 +122,8 @@ def run():
         logger.info(f"Parallel workers: {args.workers}")
 
     # Target: TestRunner.test_case in runner.py
-    import HAT.runner
-    pytest_args.append(HAT.runner.__file__)
+    import HAT.core.runner
+    pytest_args.append(HAT.core.runner.__file__)
 
     # Environment checks
     logger.info("── Environment checks ──")

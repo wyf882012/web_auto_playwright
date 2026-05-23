@@ -10,7 +10,7 @@ import allure
 from loguru import logger
 
 from HAT.ai.provider import QwenVLProvider
-from HAT.config import cfg
+from HAT.core.config import cfg
 
 
 class AIMixin:

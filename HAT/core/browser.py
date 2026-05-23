@@ -19,7 +19,7 @@ from allure_commons.types import AttachmentType
 from loguru import logger
 from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
 
-from HAT.config import cfg
+from HAT.core.config import cfg
 from HAT.utils import _safe_filename
 
 # Shared browser state (used when session_reuse=True)
@@ -105,11 +105,11 @@ class BrowserManager:
 
     def _setup_locators(self):
         """Load semantic locators from YAML files + legacy _elements."""
-        from HAT.locator import LocatorBuilder
+        from HAT.locators import LocatorBuilder
 
         locators = {}
         # 1. Scan locators/ directory for YAML files
-        loc_dir = os.path.join(os.path.dirname(__file__), "locators")
+        loc_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "locators")
         if os.path.isdir(loc_dir):
             for fn in sorted(os.listdir(loc_dir)):
                 if fn.endswith(("_locator.yaml", "_locator.yml")):

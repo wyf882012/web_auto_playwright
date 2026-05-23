@@ -5,8 +5,8 @@ Auto-discovered via conftest.py's pytest_plugins.
 Also usable as standalone: pytest.main(..., plugins=[HAT.plugin.plugin_instance])
 """
 
-from HAT.config import cfg
-from HAT.parser import parse
+from HAT.core.config import cfg
+from HAT.core.parser import parse
 
 
 # ── Module-level hook functions (auto-discovered by pytest) ─────

@@ -24,9 +24,9 @@ from typing import List, Optional
 import pandas as pd
 import yaml
 
-from HAT.operation_types import validate as validate_op
+from HAT.core.operation_types import validate as validate_op
 
-from HAT.config import cfg
+from HAT.core.config import cfg
 
 
 # ═══════════════════════════════════════════════════════════════

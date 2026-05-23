@@ -10,7 +10,7 @@ import allure
 import pytest
 from loguru import logger
 
-pytest_plugins = ["HAT.plugin"]
+pytest_plugins = ["HAT.core.plugin"]
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)

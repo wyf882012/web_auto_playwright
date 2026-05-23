@@ -11,7 +11,7 @@ from typing import Optional
 import allure
 from playwright.sync_api import expect
 
-from HAT.locator import LocatorBuilder
+from HAT.locators import LocatorBuilder
 from HAT.pages.base import BasePage
 
 
