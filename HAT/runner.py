@@ -1,10 +1,11 @@
 """
 Test runner — orchestrates a single test case execution.
 
-Three-level dispatch (操作类型 resolution):
-  1. POM dot-notation:  "LoginPage.login" → page-object method
-  2. Keywords built-in: "点击元素", "输入内容", ... → Keywords methods
-  3. ex_invoke custom:   imports from user's key_dir
+Four-level dispatch (操作类型 resolution):
+  1. AI prefix:         "AI:操作", "AI:断言" → AI vision methods
+  2. POM dot-notation:  "LoginPage.login" → page-object method
+  3. Keywords built-in: "点击元素", "输入内容", ... → Keywords methods
+  4. ex_invoke custom:   imports from user's key_dir
 """
 
 import ast
@@ -36,7 +37,18 @@ class TestRunner:
         """Instantiate and register all POM pages."""
         cls._pages.clear()
         from HAT.pages.login import LoginPage
+        from HAT.pages.video import VideoPage
         cls._pages["LoginPage"] = LoginPage(keywords)
+        cls._pages["VideoPage"] = VideoPage(keywords)
+
+    @classmethod
+    def _invoke_ai(cls, key: str, params: dict, keywords):
+        """Dispatch 'AI:操作' / 'AI:断言' to Keywords AI methods."""
+        action = key[3:]  # Strip "AI:" prefix
+        method = getattr(keywords, action, None)
+        if method is None:
+            raise AttributeError(f"Unknown AI action: '{action}'")
+        method(**{k: v for k, v in params.items() if k != "操作类型"})
 
     @classmethod
     def _invoke_pom(cls, key: str, params: dict):
@@ -127,9 +139,11 @@ class TestRunner:
             browser.stop()
 
     def _dispatch(self, params: dict, keywords: Keywords):
-        """Three-level dispatch."""
+        """Four-level dispatch: AI → POM → Keywords → ex_invoke."""
         key = params["操作类型"]
-        if "." in key:
+        if key.startswith("AI:"):
+            self._invoke_ai(key, params, keywords)
+        elif "." in key:
             self._invoke_pom(key, params)
         else:
             try:
