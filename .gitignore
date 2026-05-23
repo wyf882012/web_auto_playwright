@@ -59,6 +59,9 @@ desktop.ini
 *.bak
 *.cache
 
+# Screenshots
+PixPin_*.png
+
 # Sensitive / local files
 .env
 *.secret
