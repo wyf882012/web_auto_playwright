@@ -231,6 +231,8 @@ def _group_rows(rows: List[dict]) -> List[dict]:
             continue
         step_name = row.get("测试步骤", "")
         action = row.get("操作类型", "")
+        if not action or not str(action).strip():
+            continue  # skip blank/legend rows
         params = _parse_kv(row.get("数据内容"))
         params["操作类型"] = action
 
