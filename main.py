@@ -39,6 +39,35 @@ logger.configure(handlers=[
 ])
 
 
+def _print_operations():
+    """List all available operation types grouped by category."""
+    from HAT.operation_types import list_by_category, OpCategory
+
+    grouped = list_by_category()
+    print()
+    print("=== HAT Operation Types ===")
+    print()
+    for cat in (OpCategory.AI_ATOMIC, OpCategory.AI_ASSERTION, OpCategory.AI_COMPOSITE,
+                OpCategory.ACTION, OpCategory.ASSERTION):
+        ops = grouped.get(cat, [])
+        if not ops:
+            continue
+        labels = {
+            OpCategory.AI_ATOMIC:    "AI 原子操作 (AI:操作)",
+            OpCategory.AI_ASSERTION: "AI 断言 (AI:断言)",
+            OpCategory.AI_COMPOSITE: "AI 组合操作 (AI:执行)",
+            OpCategory.ACTION:       "传统操作",
+            OpCategory.ASSERTION:    "传统断言",
+        }
+        print(f"[{labels.get(cat, cat.name)}] ({len(ops)} operations)")
+        for op in sorted(ops):
+            print(f"  {op}")
+        print()
+    print("POM operations: dot-notation 'PageClass.method' (e.g., LoginPage.login)")
+    print("Custom operations: configure --keyDir with your keyword module")
+    print()
+
+
 def parse_args():
     p = argparse.ArgumentParser(description="HAT Automation Testing Tool")
     p.add_argument("--version", action="version", version="2026.5.0")
@@ -57,6 +86,8 @@ def parse_args():
                    help="Allure results directory")
     p.add_argument("--report_html_path", default=os.path.join(os.getcwd(), "HTML测试报告"),
                    help="HTML report output directory")
+    p.add_argument("--list-operations", action="store_true",
+                   help="List all available operation types grouped by category")
     return p.parse_args()
 
 
@@ -67,6 +98,10 @@ def run():
     print("   HAT Automation Testing Tool")
     print("   v2026.5.0 — Playwright + pytest + POM + DDT")
     print("=" * 50)
+
+    if args.list_operations:
+        _print_operations()
+        return
 
     # Inject CLI config as env vars (highest priority)
     if args.headless:
