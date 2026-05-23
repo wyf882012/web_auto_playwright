@@ -1,11 +1,15 @@
 """
 Test runner — orchestrates a single test case execution.
 
-Four-level dispatch (操作类型 resolution):
-  1. AI prefix:         "AI:操作", "AI:断言" → AI vision methods
-  2. POM dot-notation:  "LoginPage.login" → page-object method
-  3. Keywords built-in: "点击元素", "输入内容", ... → Keywords methods
-  4. ex_invoke custom:   imports from user's key_dir
+Five-category dispatch (操作类型 resolution):
+  1. AI atomic:    "AI:操作" → AI vision click/input/extract
+  2. AI assertion: "AI:断言" → AI vision assertion
+  3. AI composite: "AI:执行" → multi-turn AI agent
+  4. POM:          "PageClass.method" → page-object method
+  5. Traditional:  "点击元素", "断言文本包含", ... → Keywords methods
+  *. Custom:       ex_invoke from user's key_dir
+
+All categories resolved via HAT.operation_types.categorize().
 """
 
 import ast
@@ -17,6 +21,7 @@ from tqdm import tqdm
 from HAT.browser import BrowserManager
 from HAT.config import cfg
 from HAT.keywords import Keywords
+from HAT.operation_types import categorize, OpCategory
 from HAT.template import render
 from HAT.utils.step_logger import allure_step_with_log
 
@@ -139,20 +144,26 @@ class TestRunner:
             browser.stop()
 
     def _dispatch(self, params: dict, keywords: Keywords):
-        """Four-level dispatch: AI → POM → Keywords → ex_invoke."""
+        """Category-driven dispatch via OpCategory registry."""
         key = params["操作类型"]
-        if key.startswith("AI:"):
-            self._invoke_ai(key, params, keywords)
-        elif "." in key:
+        call = {k: v for k, v in params.items() if k != "操作类型"}
+        cat = categorize(key)
+
+        if cat == OpCategory.AI_ATOMIC:
+            keywords.AI操作(**call)
+        elif cat == OpCategory.AI_ASSERTION:
+            keywords.AI断言(**call)
+        elif cat == OpCategory.AI_COMPOSITE:
+            keywords.AI执行(**call)
+        elif cat == OpCategory.POM:
             self._invoke_pom(key, params)
-        else:
-            try:
-                getattr(keywords, key)(**params)
-            except AttributeError:
-                if cfg.get("key_dir"):
-                    keywords.ex_invoke(key=key, step_value=params)
-                else:
-                    raise AttributeError(
-                        f"Unknown keyword: '{key}'. "
-                        f"Check spelling or configure key_dir for custom keywords."
-                    ) from None
+        elif cat in (OpCategory.ACTION, OpCategory.ASSERTION):
+            getattr(keywords, key)(**params)
+        else:  # CUSTOM
+            if cfg.get("key_dir"):
+                keywords.ex_invoke(key=key, step_value=params)
+            else:
+                raise AttributeError(
+                    f"Unknown keyword: '{key}'. "
+                    f"Check spelling or configure key_dir for custom keywords."
+                ) from None
